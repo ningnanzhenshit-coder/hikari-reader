@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hikari 本地漫画与轻小说/EPUB阅读器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip for parsing EPUB and CBZ/ZIP archives -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#fdf2f8', 500: '#ec4899', 600: '#db2777', 700: '#be185d' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans select-none">
+
+  <header class="h-16 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-600 to-purple-600 flex items-center justify-center font-black text-lg shadow-lg shadow-pink-600/30">光</div>
+      <div>
+        <h1 class="font-black text-sm tracking-wide bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">Hikari Reader</h1>
+        <p class="text-[10px] text-slate-400">本地漫画 & EPUB / TXT 引擎</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <label class="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-xs font-bold cursor-pointer transition shadow-lg shadow-pink-600/20 flex items-center gap-2">
+        <span>📂 打开 EPUB / CBZ / TXT</span>
+        <input id="globalFileInput" type="file" multiple accept=".epub,.cbz,.zip,.txt,.md,image/*" class="hidden" />
+      </label>
+      <button onclick="downloadSelf()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold transition text-slate-300">
+        💾 保存离线网页
+      </button>
+    </div>
+  </header>
+
+  <main id="mainContainer" class="flex-1 max-w-6xl w-full mx-auto p-6 flex flex-col gap-6">
+    
+    <!-- Dropzone Hero -->
+    <section class="border-2 border-dashed border-slate-800 hover:border-pink-500/50 rounded-3xl p-10 text-center bg-slate-900/40 transition flex flex-col items-center justify-center gap-4 relative overflow-hidden group">
+      <div class="absolute inset-0 bg-gradient-to-br from-pink-600/5 to-purple-600/5 pointer-events-none"></div>
+      <div class="w-16 h-16 rounded-3xl bg-slate-800/80 flex items-center justify-center text-3xl shadow-xl group-hover:scale-110 transition duration-300">📖</div>
+      <div class="space-y-1">
+        <h2 class="text-xl font-bold tracking-tight">将 EPUB、CBZ 压缩包或 TXT 小说拖入此窗口</h2>
+        <p class="text-xs text-slate-400">全面支持 .epub 电子书（含目录与章节解析）、.cbz 漫画、图片文件夹与 .txt 文本</p>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button onclick="loadDemoManga()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-pink-400 transition border border-pink-500/20">
+          ✨ 体验内置示例漫画
+        </button>
+      </div>
+    </section>
+
+    <!-- Bookshelf Grid -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-black tracking-wider uppercase text-slate-400">本地书架与历史</h3>
+        <span id="shelfCount" class="text-xs text-slate-500">0 本作品</span>
+      </div>
+      <div id="bookshelfGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <!-- Dynamically populated bookshelf cards -->
+      </div>
+    </section>
+  </main>
+
+  <div id="readerModal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col hidden">
+    <!-- Reader Topbar -->
+    <div class="h-14 border-b border-slate-800 bg-slate-900 px-4 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3">
+        <button onclick="closeReader()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-xs font-bold">✕</button>
+        <h2 id="readerTitle" class="text-sm font-bold truncate max-w-xs sm:max-w-md">漫画 / 小说标题</h2>
+      </div>
+      <div class="flex items-center gap-3 text-xs">
+        <span id="readerPageIndicator" class="text-slate-400 font-mono">1 / 1</span>
+        <button onclick="toggleReaderMode()" id="modeToggleBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold transition">切换排版</button>
+      </div>
+    </div>
+
+    <!-- Reader Canvas / Content Area -->
+    <div id="readerViewport" class="flex-1 overflow-auto relative flex items-center justify-center bg-black">
+      <!-- Content injected dynamically -->
+    </div>
+
+    <!-- Reader Footer / Controls -->
+    <div class="h-16 border-t border-slate-800 bg-slate-900 px-6 flex items-center justify-between shrink-0">
+      <button onclick="prevPage()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-xs">上一页 / 上一步</button>
+      <input type="range" id="readerSlider" min="0" max="100" value="0" class="w-1/2 accent-pink-600 cursor-pointer" oninput="onSliderMove(this.value)" />
+      <button onclick="nextPage()" class="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 font-bold text-xs">下一页 / 下一步</button>
+    </div>
+  </div>
+
+  <script>
+    // State management
+    let library = JSON.parse(localStorage.getItem('hikari_local_lib') || '[]');
+    let currentBook = null;
+    let currentPageIndex = 0;
+    let readerMode = 'manga'; // 'manga' | 'novel' | 'epub'
+    let mangaPages = []; 
+    let novelParagraphs = []; 
+    let epubChapters = []; // array of { title, htmlContent }
+
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-2.5 rounded-full shadow-2xl text-xs font-bold border border-slate-800';
+      t.innerText = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2500);
+    }
+
+    function renderBookshelf() {
+      const grid = document.getElementById('bookshelfGrid');
+      document.getElementById('shelfCount').innerText = `${library.length} 本作品`;
+      if (library.length === 0) {
+        grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-500 text-xs">暂无本地作品，请上方点击按钮或拖入文件开始阅读</div>';
+        return;
+      }
+      grid.innerHTML = library.map((book) => `
+        <div onclick="openBook('${book.id}')" class="group bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-pink-500/50 rounded-2xl p-3 flex flex-col gap-3 cursor-pointer transition shadow-xl">
+          <div class="w-full aspect-[3/4] rounded-xl bg-slate-800 overflow-hidden relative flex items-center justify-center">
+            ${book.cover ? `<img src="${book.cover}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />` : '<span class="text-3xl">📖</span>'}
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+              <span class="px-3 py-1.5 rounded-xl bg-pink-600 text-white font-bold text-xs shadow-lg">立即阅读</span>
+            </div>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs truncate">${book.title}</h4>
+            <p class="text-[10px] text-slate-400 mt-0.5">${book.type === 'manga' ? '漫画图集' : book.type === 'epub' ? 'EPUB 电子书' : 'TXT 小说'}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // File input & drag drop handler
+    const fileInput = document.getElementById('globalFileInput');
+    fileInput.onchange = e => handleFiles(e.target.files);
+
+    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('drop', e => {
+      e.preventDefault();
+      if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
+    });
+
+    async function handleFiles(files) {
+      const fileList = Array.from(files);
+      
+      // 1. Check for EPUB
+      const epubFile = fileList.find(f => /\.epub$/i.test(f.name));
+      if (epubFile) {
+        await parseEpubFile(epubFile);
+        return;
+      }
+
+      // 2. Check for CBZ / ZIP archive
+      const zipFile = fileList.find(f => /\.(cbz|zip)$/i.test(f.name));
+      if (zipFile) {
+        await parseCbzFile(zipFile);
+        return;
+      }
+
+      // 3. Check for Images
+      const imgFiles = fileList.filter(f => f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(f.name));
+      if (imgFiles.length > 0) {
+        imgFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        const pages = imgFiles.map(f => URL.createObjectURL(f));
+        const title = imgFiles[0].name.replace(/\.[^.]+$/, '');
+        const newBook = {
+          id: 'book_' + Date.now(),
+          type: 'manga',
+          title: title,
+          cover: pages[0],
+          pages: pages
+        };
+        library.unshift(newBook);
+        localStorage.setItem('hikari_local_lib', JSON.stringify(library));
+        renderBookshelf();
+        showToast(`成功导入漫画《${title}》(${pages.length}页)`);
+        openBook(newBook.id);
+        return;
+      }
+
+      // 4. Check for TXT
+      const txtFile = fileList.find(f => /\.(txt|md)$/i.test(f.name));
+      if (txtFile) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const text = e.target.result;
+          const paragraphs = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+          const title = txtFile.name.replace(/\.[^.]+$/, '');
+          const newBook = {
+            id: 'book_' + Date.now(),
+            type: 'novel',
+            title: title,
+            cover: null,
+            paragraphs: paragraphs
+          };
+          library.unshift(newBook);
+          localStorage.setItem('hikari_local_lib', JSON.stringify(library));
+          renderBookshelf();
+          showToast(`成功导入小说《${title}》(${paragraphs.length}段)`);
+          openBook(newBook.id);
+        };
+        reader.readAsText(txtFile, 'utf-8');
+      }
+    }
+
+    // EPUB Parser using JSZip
+    async function parseEpubFile(file) {
+      try {
+        showToast(`正在解析 EPUB 电子书《${file.name}》...`);
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(file);
+
+        // Find container.xml to get OPF path
+        const containerFile = zipContent.file('META-INF/container.xml');
+        if (!containerFile) throw new Error('Invalid EPUB: missing container.xml');
+        const containerXmlText = await containerFile.async('text');
+        const parser = new DOMParser();
+        const containerDoc = parser.parseFromString(containerXmlText, 'text/xml');
+        const rootfileTag = containerDoc.querySelector('rootfile');
+        const opfPath = rootfileTag ? rootfileTag.getAttribute('full-path') : 'content.opf';
+
+        const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+        const opfFile = zipContent.file(opfPath);
+        if (!opfFile) throw new Error('Invalid EPUB: missing OPF file');
+        const opfText = await opfFile.async('text');
+        const opfDoc = parser.parseFromString(opfText, 'text/xml');
+
+        // Extract Title
+        const titleEl = opfDoc.querySelector('title');
+        const bookTitle = titleEl ? titleEl.textContent : file.name.replace(/\.epub$/i, '');
+
+        // Extract manifest items
+        const manifestItems = {};
+        opfDoc.querySelectorAll('manifest > item').forEach(item => {
+          manifestItems[item.getAttribute('id')] = {
+            href: item.getAttribute('href'),
+            mediaType: item.getAttribute('media-type')
+          };
+        });
+
+        // Extract spine
+        const spineItemRefs = [];
+        opfDoc.querySelectorAll('spine > itemref').forEach(itemref => {
+          spineItemRefs.push(itemref.getAttribute('idref'));
+        });
+
+        const extractedChapters = [];
+        let coverUrl = null;
+
+        for (const idref of spineItemRefs) {
+          const item = manifestItems[idref];
+          if (!item) continue;
+          const fullHref = opfDir + item.href;
+          const epubEntry = zipContent.file(fullHref);
+          if (epubEntry) {
+            let htmlText = await epubEntry.async('text');
+            // Resolve image src inside HTML to Blob URLs
+            const imgMatches = htmlText.match(/src="([^"]+)"/g) || [];
+            for (const match of imgMatches) {
+              const srcVal = match.match(/src="([^"]+)"/)[1];
+              if (!srcVal.startsWith('http') && !srcVal.startsWith('data:')) {
+                const absoluteImgPath = opfDir + (srcVal.startsWith('/') ? srcVal.slice(1) : srcVal);
+                // simplify path resolution
+                const resolvedPath = resolvePath(fullHref, srcVal);
+                const imgEntry = zipContent.file(resolvedPath);
+                if (imgEntry) {
+                  const imgBlob = await imgEntry.async('blob');
+                  const blobUrl = URL.createObjectURL(imgBlob);
+                  htmlText = htmlText.replaceAll(`src="${srcVal}"`, `src="${blobUrl}"`);
+                  if (!coverUrl) coverUrl = blobUrl;
+                }
+              }
+            }
+            extractedChapters.push({
+              title: item.href.split('/').pop().replace(/\.[^.]+$/, ''),
+              htmlContent: htmlText
+            });
+          }
+        }
+
+        if (extractedChapters.length === 0) {
+          throw new Error('未能在该 EPUB 中找到有效章节');
+        }
+
+        const newBook = {
+          id: 'epub_' + Date.now(),
+          type: 'epub',
+          title: bookTitle,
+          cover: coverUrl,
+          chapters: extractedChapters
+        };
+
+        library.unshift(newBook);
+        localStorage.setItem('hikari_local_lib', JSON.stringify(library));
+        renderBookshelf();
+        showToast(`成功导入 EPUB《${bookTitle}》(${extractedChapters.length}个章节)`);
+        openBook(newBook.id);
+      } catch (err) {
+        console.error(err);
+        showToast('EPUB 解析失败：' + err.message);
+      }
+    }
+
+    function resolvePath(basePath, relativePath) {
+      const baseDir = basePath.includes('/') ? basePath.substring(0, basePath.lastIndexOf('/') + 1) : '';
+      const stack = baseDir.split('/').filter(Boolean);
+      const parts = relativePath.split('/');
+      for (const p of parts) {
+        if (p === '..') stack.pop();
+        else if (p !== '.') stack.push(p);
+      }
+      return stack.join('/');
+    }
+
+    // CBZ / ZIP Parser using JSZip
+    async function parseCbzFile(file) {
+      try {
+        showToast(`正在解压漫画包《${file.name}》...`);
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(file);
+        const imageEntries = [];
+
+        zipContent.forEach((relativePath, zipEntry) => {
+          if (!zipEntry.dir && /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(relativePath) && !relativePath.includes('__MACOSX')) {
+            imageEntries.push({ name: relativePath, entry: zipEntry });
+          }
+        });
+
+        imageEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        if (imageEntries.length === 0) throw new Error('压缩包内未找到漫画图片');
+
+        const pages = [];
+        for (const item of imageEntries) {
+          const blob = await item.entry.async('blob');
+          pages.push(URL.createObjectURL(blob));
+        }
+
+        const title = file.name.replace(/\.(cbz|zip)$/i, '');
+        const newBook = {
+          id: 'cbz_' + Date.now(),
+          type: 'manga',
+          title: title,
+          cover: pages[0],
+          pages: pages
+        };
+
+        library.unshift(newBook);
+        localStorage.setItem('hikari_local_lib', JSON.stringify(library));
+        renderBookshelf();
+        showToast(`成功导入漫画《${title}》(${pages.length}页)`);
+        openBook(newBook.id);
+      } catch (err) {
+        console.error(err);
+        showToast('漫画压缩包解析失败：' + err.message);
+      }
+    }
+
+    // Load Demo Manga
+    function loadDemoManga() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800; canvas.height = 1200;
+      const ctx = canvas.getContext('2d');
+      
+      const demoPages = [1, 2, 3, 4].map(p => {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, 800, 1200);
+        ctx.fillStyle = '#ec4899';
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Hikari 示例漫画 第 ${p} 页`, 400, 500);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '24px sans-serif';
+        ctx.fillText('支持本地拖入 EPUB、CBZ 或图片', 400, 580);
+        return canvas.toDataURL('image/jpeg', 0.85);
+      });
+
+      const demoBook = {
+        id: 'demo_manga_1',
+        type: 'manga',
+        title: '【示例】星轨少女的幻想',
+        cover: demoPages[0],
+        pages: demoPages
+      };
+      
+      if (!library.some(b => b.id === demoBook.id)) {
+        library.unshift(demoBook);
+        localStorage.setItem('hikari_local_lib', JSON.stringify(library));
+      }
+      renderBookshelf();
+      openBook(demoBook.id);
+    }
+
+    function openBook(id) {
+      currentBook = library.find(b => b.id === id);
+      if (!currentBook) return;
+      currentPageIndex = 0;
+      document.getElementById('readerTitle').innerText = currentBook.title;
+      document.getElementById('readerModal').classList.remove('hidden');
+      
+      if (currentBook.type === 'manga') {
+        readerMode = 'manga';
+        mangaPages = currentBook.pages;
+      } else if (currentBook.type === 'epub') {
+        readerMode = 'epub';
+        epubChapters = currentBook.chapters;
+      } else {
+        readerMode = 'novel';
+        novelParagraphs = currentBook.paragraphs;
+      }
+      renderReaderPage();
+    }
+
+    function closeReader() {
+      document.getElementById('readerModal').classList.add('hidden');
+      currentBook = null;
+    }
+
+    function renderReaderPage() {
+      const viewport = document.getElementById('readerViewport');
+      const indicator = document.getElementById('readerPageIndicator');
+      const slider = document.getElementById('readerSlider');
+
+      if (readerMode === 'manga') {
+        const total = mangaPages.length;
+        if (currentPageIndex >= total) currentPageIndex = total - 1;
+        if (currentPageIndex < 0) currentPageIndex = 0;
+        
+        viewport.innerHTML = `<img src="${mangaPages[currentPageIndex]}" class="max-h-full max-w-full object-contain shadow-2xl rounded-lg" />`;
+        indicator.innerText = `${currentPageIndex + 1} / ${total}`;
+        slider.max = total - 1;
+        slider.value = currentPageIndex;
+      } else if (readerMode === 'epub') {
+        const total = epubChapters.length;
+        if (currentPageIndex >= total) currentPageIndex = total - 1;
+        if (currentPageIndex < 0) currentPageIndex = 0;
+
+        const chap = epubChapters[currentPageIndex];
+        viewport.innerHTML = `
+          <div class="max-w-2xl w-full mx-auto p-10 bg-[#f4ecd8] text-[#3c3022] rounded-3xl shadow-2xl font-serif leading-loose space-y-6 my-auto overflow-y-auto max-h-[85vh]">
+            <h3 class="text-xs font-sans font-bold text-[#7a6b52] uppercase tracking-widest">${chap.title}</h3>
+            <div class="epub-content space-y-4 text-base">${chap.htmlContent}</div>
+          </div>
+        `;
+        indicator.innerText = `${currentPageIndex + 1} / ${total} (章)`;
+        slider.max = total - 1;
+        slider.value = currentPageIndex;
+      } else {
+        const total = novelParagraphs.length;
+        if (currentPageIndex >= total) currentPageIndex = total - 1;
+        if (currentPageIndex < 0) currentPageIndex = 0;
+
+        const pageSize = 15;
+        const start = currentPageIndex * pageSize;
+        const slice = novelParagraphs.slice(start, start + pageSize);
+        const totalPages = Math.ceil(total / pageSize);
+        const curPageNum = Math.floor(start / pageSize) + 1;
+
+        viewport.innerHTML = `
+          <div class="max-w-2xl w-full mx-auto p-10 bg-[#f4ecd8] text-[#3c3022] rounded-3xl shadow-2xl font-serif leading-loose space-y-6 my-auto">
+            <h3 class="text-xs font-sans font-bold text-[#7a6b52] uppercase tracking-widest">${currentBook.title}</h3>
+            ${slice.map(p => `<p class="text-base">${p}</p>`).join('')}
+          </div>
+        `;
+        indicator.innerText = `${curPageNum} / ${totalPages}`;
+        slider.max = totalPages - 1;
+        slider.value = curPageNum - 1;
+      }
+    }
+
+    function nextPage() {
+      if (readerMode === 'manga') {
+        if (currentPageIndex < mangaPages.length - 1) {
+          currentPageIndex++;
+          renderReaderPage();
+        }
+      } else if (readerMode === 'epub') {
+        if (currentPageIndex < epubChapters.length - 1) {
+          currentPageIndex++;
+          renderReaderPage();
+        }
+      } else {
+        const pageSize = 15;
+        if ((currentPageIndex + 1) * pageSize < novelParagraphs.length) {
+          currentPageIndex += pageSize;
+          renderReaderPage();
+        }
+      }
+    }
+
+    function prevPage() {
+      if (readerMode === 'manga') {
+        if (currentPageIndex > 0) {
+          currentPageIndex--;
+          renderReaderPage();
+        }
+      } else if (readerMode === 'epub') {
+        if (currentPageIndex > 0) {
+          currentPageIndex--;
+          renderReaderPage();
+        }
+      } else {
+        const pageSize = 15;
+        if (currentPageIndex >= pageSize) {
+          currentPageIndex -= pageSize;
+          renderReaderPage();
+        }
+      }
+    }
+
+    function onSliderMove(val) {
+      if (readerMode === 'manga' || readerMode === 'epub') {
+        currentPageIndex = parseInt(val);
+        renderReaderPage();
+      } else {
+        currentPageIndex = parseInt(val) * 15;
+        renderReaderPage();
+      }
+    }
+
+    function toggleReaderMode() {
+      showToast('当前已加载完整排版');
+    }
+
+    function downloadSelf() {
+      const htmlContent = document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Hikari_Local_Reader.html';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('已成功打包下载单文件网页版！');
+    }
+
+    renderBookshelf();
+  </script>
+</body>
+</html>
