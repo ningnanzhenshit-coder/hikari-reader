@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light" data-theme="blue" data-mode="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HOMURA — ACGN GO 本地漫画与轻小说阅读器</title>
+  <!-- Favicon: Uploaded Red Rounded Square + Golden Open Book with Arrow + White ACGN GO -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='26' fill='%23E61919'/%3E%3Cg transform='translate(10, 8)'%3E%3Cpath d='M12 20 C12 18, 17 18, 21 19 L21 62 C27 63, 36 66, 44 71 L44 75 C33 69, 21 66, 12 65 Z' fill='%23FFC400'/%3E%3Cpath d='M20 14 C20 12, 25 12, 29 13 L29 56 C34 57, 41 60, 47 65 L47 69 C38 63, 27 60, 20 59 Z' fill='%23FFC400'/%3E%3Cpath d='M30 7 C38 8, 45 13, 49 20 L49 65 C44 58, 37 54, 30 52 Z' fill='%23FFC400'/%3E%3Cpath d='M84 7 C68 8, 56 13, 51 20 L51 64 C59 56, 71 52, 84 52 L84 40 L76 40 C73 40, 72 36, 75 34 L84 27 Z' fill='%23FFC400'/%3E%3Cpath d='M51 69 C61 60, 72 57, 83 57 L78 63 C76 66, 79 70, 83 67 L95 54 C97 52, 97 49, 95 47 L83 34 C79 31, 76 35, 78 38 L83 44 C70 44, 59 49, 51 59 Z' fill='%23FFC400'/%3E%3C/g%3E%3Ctext x='60' y='94' font-family='sans-serif' font-size='18' font-weight='900' fill='%23FFFFFF' text-anchor='middle'%3EACGN%3C/text%3E%3Ctext x='60' y='111' font-family='sans-serif' font-size='17' font-weight='900' fill='%23FFFFFF' text-anchor='middle'%3EGO%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip for parsing EPUB and CBZ/ZIP archives -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* ==========================================================================
+       1. Dynamic Theme Accent Colors (Blue / RedGold / Green / Violet)
+       ========================================================================== */
+    :root,
+    html[data-theme="blue"] {
+      --brand-primary: #2563EB;
+      --brand-primary-hover: #1D4ED8;
+      --brand-shadow: #1E40AF;
+      --brand-soft: #EFF6FF;
+      --brand-border: #BFDBFE;
+      --brand-on-primary: #FFFFFF;
+    }
+    html[data-theme="red"] {
+      --brand-primary: #E61919;
+      --brand-primary-hover: #C81010;
+      --brand-shadow: #FFC400;
+      --brand-soft: #FFF7D6;
+      --brand-border: #FDE68A;
+      --brand-on-primary: #FFFFFF;
+    }
+    html[data-theme="green"] {
+      --brand-primary: #059669;
+      --brand-primary-hover: #047857;
+      --brand-shadow: #065F46;
+      --brand-soft: #ECFDF5;
+      --brand-border: #A7F3D0;
+      --brand-on-primary: #FFFFFF;
+    }
+    html[data-theme="violet"] {
+      --brand-primary: #7C3AED;
+      --brand-primary-hover: #6D28D9;
+      --brand-shadow: #5B21B6;
+      --brand-soft: #F5F3FF;
+      --brand-border: #DDD6FE;
+      --brand-on-primary: #FFFFFF;
+    }
+
+    /* ==========================================================================
+       2. Reading Surface Modes (Light / Warm Eye-Care / Dark)
+       ========================================================================== */
+    html[data-mode="light"] {
+      --bg-canvas: #F8FAFC;
+      --bg-subtle: #F1F5F9;
+      --bg-card: #FFFFFF;
+      --bg-reader: #F1F5F9;
+      --fg-main: #0F172A;
+      --fg-muted: #64748B;
+      --border-line: #E2E8F0;
+      --manga-filter: none;
+    }
+
+    /* Warm Eye-Care Mode (Sepia / Warm Paper) */
+    html[data-mode="warm"] {
+      --bg-canvas: #F6EFE2;
+      --bg-subtle: #EDE3D0;
+      --bg-card: #FBF7EE;
+      --bg-reader: #EFE6D5;
+      --fg-main: #3B2F2F;
+      --fg-muted: #7C6A58;
+      --border-line: #DFD1BA;
+      --brand-soft: #EFE4CE;
+      --manga-filter: sepia(0.18) brightness(0.97) contrast(0.98);
+    }
+
+    /* Dark Mode */
+    html[data-mode="dark"] {
+      --bg-canvas: #090D16;
+      --bg-subtle: #0F172A;
+      --bg-card: #111827;
+      --bg-reader: #070B12;
+      --fg-main: #F1F5F9;
+      --fg-muted: #94A3B8;
+      --border-line: #1E293B;
+      --brand-soft: rgba(255, 255, 255, 0.06);
+      --brand-border: rgba(255, 255, 255, 0.14);
+      --manga-filter: brightness(0.92);
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--fg-main);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .manga-page-img {
+      filter: var(--manga-filter);
+      transition: filter 0.25s ease;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--brand-primary); opacity: 0.35; border-radius: 9999px; }
+
+    /* Uiverse-inspired tactile button */
+    .uiverse-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.9rem;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--fg-main);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-line);
+      border-radius: 8px;
+      box-shadow: 0 2px 0 0 var(--border-line);
+      transition: all 0.12s cubic-bezier(0.2, 0, 0, 1);
+      cursor: pointer;
+    }
+    .uiverse-btn:hover {
+      border-color: var(--brand-primary);
+      color: var(--brand-primary);
+      box-shadow: 0 2px 0 0 var(--brand-primary);
+      transform: translateY(-1px);
+    }
+    .uiverse-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 0px 0 0 var(--brand-primary);
+    }
+
+    /* Primary Theme tactile button */
+    .uiverse-btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.45rem 1rem;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--brand-on-primary);
+      background-color: var(--brand-primary);
+      border: 1px solid var(--brand-primary-hover);
+      border-radius: 8px;
+      box-shadow: 0 2px 0 0 var(--brand-shadow);
+      transition: all 0.12s cubic-bezier(0.2, 0, 0, 1);
+      cursor: pointer;
+    }
+    .uiverse-btn-primary:hover {
+      background-color: var(--brand-primary-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 0 0 var(--brand-shadow);
+    }
+    .uiverse-btn-primary:active {
+      transform: translateY(1px);
+      box-shadow: 0 0px 0 0 var(--brand-shadow);
+    }
+
+    /* Editorial Card */
+    .editorial-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-line);
+      border-radius: 12px;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .editorial-card:hover {
+      border-color: var(--brand-primary);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.14);
+    }
+
+    .theme-swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      border: 2px solid rgba(255,255,255,0.8);
+    }
+    .theme-swatch:hover {
+      transform: scale(1.15);
+    }
+    .theme-swatch.active-swatch {
+      box-shadow: 0 0 0 2px var(--fg-main);
+      transform: scale(1.12);
+    }
+
+    .book-spine-shadow {
+      background: linear-gradient(90deg,
+        rgba(0,0,0,0) 0%,
+        rgba(0,0,0,0.06) 46%,
+        rgba(0,0,0,0.22) 50%,
+        rgba(0,0,0,0.06) 54%,
+        rgba(0,0,0,0) 100%);
+    }
+    html[data-mode="dark"] .book-spine-shadow {
+      background: linear-gradient(90deg,
+        rgba(0,0,0,0) 0%,
+        rgba(0,0,0,0.35) 46%,
+        rgba(0,0,0,0.75) 50%,
+        rgba(0,0,0,0.35) 54%,
+        rgba(0,0,0,0) 100%);
+    }
+
+    .epub-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 0.5rem;
+      margin: 0.75rem auto;
+      display: block;
+    }
+    .epub-content p {
+      margin-bottom: 0.85em;
+      text-indent: 2em;
+    }
+    .rtl-slider {
+      direction: rtl;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans select-none transition-colors duration-200">
+
+  <!-- Top Navigation Bar -->
+  <header class="h-16 border-b border-[var(--border-line)] bg-[var(--bg-card)]/95 backdrop-blur-md px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+    <div class="flex items-center gap-3">
+      <!-- Uploaded Red Rounded Square + Golden Book + White ACGN GO Icon -->
+      <div class="w-10 h-10 rounded-xl bg-[#E61919] flex items-center justify-center shadow-md shadow-red-500/15 border border-red-600/30 shrink-0">
+        <svg class="w-8 h-8" viewBox="0 0 120 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(10, 3)">
+            <path d="M10 20 C10 18, 16 18, 20 19 L20 62 C26 63, 35 66, 44 71 L44 75 C33 69, 20 66, 10 65 Z" fill="#FFC400"/>
+            <path d="M18 14 C18 12, 24 12, 28 13 L28 56 C33 57, 40 60, 46 65 L46 69 C37 63, 26 60, 18 59 Z" fill="#FFC400"/>
+            <path d="M29 7 C37 8, 44 13, 48 20 L48 65 C43 58, 36 54, 29 52 Z" fill="#FFC400"/>
+            <path d="M84 7 C68 8, 56 13, 51 20 L51 64 C59 56, 71 52, 84 52 L84 40 L76 40 C73 40, 72 36, 75 34 L84 27 Z" fill="#FFC400"/>
+            <path d="M51 69 C61 60, 72 57, 83 57 L78 63 C76 66, 79 70, 83 67 L95 54 C97 52, 97 49, 95 47 L83 34 C79 31, 76 35, 78 38 L83 44 C70 44, 59 49, 51 59 Z" fill="#FFC400"/>
+          </g>
+          <text x="60" y="92" font-family="sans-serif" font-size="17" font-weight="900" fill="#FFFFFF" text-anchor="middle">ACGN</text>
+          <text x="60" y="109" font-family="sans-serif" font-size="16" font-weight="900" fill="#FFFFFF" text-anchor="middle">GO</text>
+        </svg>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <h1 class="font-display font-extrabold text-lg tracking-tight">HOMURA</h1>
+        <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded-md bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-border)]">ACGN·GO</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- UI Theme Color Swatches (Blue / RedGold / Green / Violet) -->
+      <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-line)] mr-1" title="选择 UI 主题颜色">
+        <span class="text-[11px] font-semibold text-[var(--fg-muted)] mr-0.5">主题</span>
+        <button onclick="setThemeColor('blue')" data-swatch="blue" class="theme-swatch bg-[#2563EB] active-swatch" title="晴空蓝 (默认)"></button>
+        <button onclick="setThemeColor('red')" data-swatch="red" class="theme-swatch bg-[#E61919]" title="绯红金"></button>
+        <button onclick="setThemeColor('green')" data-swatch="green" class="theme-swatch bg-[#059669]" title="森系绿"></button>
+        <button onclick="setThemeColor('violet')" data-swatch="violet" class="theme-swatch bg-[#7C3AED]" title="星夜紫"></button>
+      </div>
+
+      <!-- Surface Mode Switcher: Light / Warm Eye-Care / Dark -->
+      <div class="flex items-center bg-[var(--bg-subtle)] p-0.5 rounded-lg border border-[var(--border-line)]">
+        <button onclick="setSurfaceMode('light')" data-mode-btn="light" class="px-2 py-1 rounded-md text-xs font-semibold transition" title="纯净白昼模式">
+          ☀️ 白昼
+        </button>
+        <button onclick="setSurfaceMode('warm')" data-mode-btn="warm" class="px-2 py-1 rounded-md text-xs font-semibold transition" title="暖色调护眼模式（羊皮纸色 + 柔光滤镜）">
+          🌾 护眼
+        </button>
+        <button onclick="setSurfaceMode('dark')" data-mode-btn="dark" class="px-2 py-1 rounded-md text-xs font-semibold transition" title="深邃夜间模式">
+          🌙 夜间
+        </button>
+      </div>
+
+      <!-- File Open Button -->
+      <label class="uiverse-btn-primary">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <span>导入文件</span>
+        <input id="globalFileInput" type="file" multiple accept=".epub,.cbz,.zip,.txt,.md,image/*" class="hidden" />
+      </label>
+
+      <!-- Folder Open Button -->
+      <label class="uiverse-btn" title="导入整个文件夹（支持内含多本EPUB/ZIP或漫画图片子文件夹）">
+        <svg class="w-3.5 h-3.5 text-[var(--brand-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span class="hidden sm:inline">导入文件夹</span>
+        <input id="folderFileInput" type="file" webkitdirectory directory multiple class="hidden" />
+      </label>
+
+      <!-- Fullscreen Button (F Key) -->
+      <button onclick="toggleFullScreen()" class="uiverse-btn font-mono" title="按 F 键切换全屏模式">
+        <span>⛶</span>
+        <span class="hidden lg:inline" id="fullscreenText">F 全屏</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main id="mainContainer" class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 flex flex-col gap-8">
+    
+    <!-- Minimalist Drop Dock -->
+    <section id="dropZoneBanner" class="rounded-2xl bg-[var(--bg-card)] border-2 border-dashed border-[var(--border-line)] hover:border-[var(--brand-primary)] px-6 py-7 transition-all duration-200 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-sm">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-[#E61919] flex items-center justify-center shrink-0 shadow-md shadow-red-500/15">
+          <svg class="w-7 h-7" viewBox="0 0 100 85" fill="none">
+            <path d="M10 20 C10 18, 16 18, 20 19 L20 62 C26 63, 35 66, 44 71 L44 75 C33 69, 20 66, 10 65 Z" fill="#FFC400"/>
+            <path d="M18 14 C18 12, 24 12, 28 13 L28 56 C33 57, 40 60, 46 65 L46 69 C37 63, 26 60, 18 59 Z" fill="#FFC400"/>
+            <path d="M29 7 C37 8, 44 13, 48 20 L48 65 C43 58, 36 54, 29 52 Z" fill="#FFC400"/>
+            <path d="M84 7 C68 8, 56 13, 51 20 L51 64 C59 56, 71 52, 84 52 L84 40 L76 40 C73 40, 72 36, 75 34 L84 27 Z" fill="#FFC400"/>
+            <path d="M51 69 C61 60, 72 57, 83 57 L78 63 C76 66, 79 70, 83 67 L95 54 C97 52, 97 49, 95 47 L83 34 C79 31, 76 35, 78 38 L83 44 C70 44, 59 49, 51 59 Z" fill="#FFC400"/>
+          </svg>
+        </div>
+        <div class="space-y-2 text-center sm:text-left">
+          <h2 class="text-base font-display font-bold tracking-tight">
+            拖入本地文件或文件夹，直接加入书架
+          </h2>
+          <div class="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 font-mono text-[11px]">
+            <span class="px-2 py-0.5 rounded-md bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-border)] font-semibold">.EPUB / .KEPUB</span>
+            <span class="px-2 py-0.5 rounded-md bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-border)] font-semibold">.CBZ / .ZIP</span>
+            <span class="px-2 py-0.5 rounded-md bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-border)] font-semibold">.TXT / .MD</span>
+            <span class="px-2 py-0.5 rounded-md bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-border)] font-semibold">图片文件夹</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 shrink-0">
+        <button onclick="document.getElementById('globalFileInput').click()" class="uiverse-btn-primary">
+          选择文件
+        </button>
+        <button onclick="document.getElementById('folderFileInput').click()" class="uiverse-btn">
+          选择文件夹
+        </button>
+      </div>
+    </section>
+
+    <!-- Bookshelf Section -->
+    <section class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-line)] pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-2 h-5 rounded-full bg-[var(--brand-primary)]"></div>
+          <h3 class="text-sm font-display font-bold tracking-tight">我的书架</h3>
+          <span id="shelfCount" class="px-2.5 py-0.5 rounded-full font-mono text-[11px] font-bold bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-border)]">0 本作品</span>
+        </div>
+        <div class="flex items-center gap-3 text-xs font-semibold text-[var(--fg-muted)]">
+          <button onclick="loadDemoManga(false)" class="hover:text-[var(--brand-primary)] transition">+ 示例漫画</button>
+          <span>·</span>
+          <button onclick="loadDemoNovel(false)" class="hover:text-[var(--brand-primary)] transition">+ 示例小说</button>
+          <span>·</span>
+          <button onclick="downloadSelf()" class="text-[var(--brand-primary)] hover:underline transition">
+            保存离线单文件
+          </button>
+          <span>·</span>
+          <button onclick="clearShelf()" class="hover:text-red-500 transition">清空</button>
+        </div>
+      </div>
+
+      <div id="bookshelfGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Reader Fullscreen Modal -->
+  <div id="readerModal" class="fixed inset-0 bg-[var(--bg-reader)] z-50 flex flex-col hidden transition-colors duration-200">
+    
+    <!-- Reader Compact Topbar -->
+    <div class="h-12 border-b border-[var(--border-line)] bg-[var(--bg-card)]/95 backdrop-blur px-3 sm:px-5 flex items-center justify-between shrink-0 z-20">
+      <!-- Left: Back & Title -->
+      <div class="flex items-center gap-2.5 min-w-0">
+        <button onclick="closeReader()" class="uiverse-btn py-1 px-2.5 shrink-0">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/></svg>
+          <span class="hidden sm:inline">书架</span>
+        </button>
+        <div class="min-w-0">
+          <h2 id="readerTitle" class="text-xs sm:text-sm font-bold truncate">作品标题</h2>
+          <p id="readerSubStatus" class="text-[10px] font-mono text-[var(--brand-primary)] truncate hidden sm:block">标准模式</p>
+        </div>
+      </div>
+
+      <!-- Center: Visual Mode Switcher Pills -->
+      <div class="flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-lg border border-[var(--border-line)]">
+        <button id="btnDirLTR" onclick="setDirection('ltr')" class="px-2.5 py-1 rounded text-xs font-semibold transition flex items-center gap-1" title="左页先读·右页后读，下一页在右边">
+          <span>左→右</span>
+        </button>
+        <button id="btnDirRTL" onclick="setDirection('rtl')" class="px-2.5 py-1 rounded text-xs font-semibold transition flex items-center gap-1" title="日本漫画排布：双页时右页先读、左页后读，且下一页在左边">
+          <span>右→左(日漫)</span>
+        </button>
+        <button id="btnDirVertical" onclick="setDirection('vertical')" class="px-2.5 py-1 rounded text-xs font-semibold transition flex items-center gap-1" title="上下条漫瀑布流（单张完整大图无缝下拉）">
+          <span>上→下(条漫)</span>
+        </button>
+
+        <div class="w-px h-3.5 bg-[var(--border-line)] mx-0.5"></div>
+
+        <button id="btnSpreadSingle" onclick="setSpreadCount(1)" class="px-2.5 py-1 rounded text-xs font-semibold transition" title="单页显示">
+          单页
+        </button>
+        <button id="btnSpreadDouble" onclick="setSpreadCount(2)" class="px-2.5 py-1 rounded text-xs font-semibold transition flex items-center gap-1" title="双页并排最大化显示">
+          <span>双页</span>
+        </button>
+      </div>
+
+      <!-- Right: Extra Options (Including Eye-Care & Theme Swatches inside Reader!) -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="btnCoverOffset" onclick="toggleCoverOffset()" class="hidden xl:flex uiverse-btn py-1 px-2 text-[11px]" title="双页模式下首页单独显示，确保后续跨页大图对齐">
+          <span>首页单排:</span><span id="coverOffsetStatus" class="font-bold text-[var(--brand-primary)]">开</span>
+        </button>
+
+        <!-- Webtoon Width Switcher -->
+        <button id="btnWebtoonFit" onclick="toggleWebtoonWidth()" class="hidden uiverse-btn py-1 px-2 text-[11px]" title="切换条漫图片显示尺寸：完整适配一屏高度 / 适中宽度 / 宽屏">
+          <span>条漫尺寸:</span><span id="webtoonFitStatus" class="font-bold text-[var(--brand-primary)]">完整单张</span>
+        </button>
+
+        <div id="novelFontControls" class="hidden sm:flex items-center bg-[var(--bg-subtle)] rounded-lg p-0.5 border border-[var(--border-line)]">
+          <button onclick="changeFontSize(-2)" class="px-2 py-0.5 text-xs font-bold">A-</button>
+          <span id="fontSizeLabel" class="text-[11px] font-mono px-1 text-[var(--fg-muted)]">18</span>
+          <button onclick="changeFontSize(2)" class="px-2 py-0.5 text-xs font-bold">A+</button>
+        </div>
+
+        <!-- Reader Quick Surface Switcher (Light / Warm Eye-Care / Dark) -->
+        <div class="flex items-center bg-[var(--bg-subtle)] p-0.5 rounded-lg border border-[var(--border-line)]">
+          <button onclick="setSurfaceMode('light')" data-mode-btn="light" class="px-1.5 py-0.5 rounded text-[11px] font-semibold transition" title="白昼模式">☀️</button>
+          <button onclick="setSurfaceMode('warm')" data-mode-btn="warm" class="px-1.5 py-0.5 rounded text-[11px] font-semibold transition" title="暖色调护眼模式">🌾护眼</button>
+          <button onclick="setSurfaceMode('dark')" data-mode-btn="dark" class="px-1.5 py-0.5 rounded text-[11px] font-semibold transition" title="夜间模式">🌙</button>
+        </div>
+
+        <!-- Reader Mini Color Swatches -->
+        <div class="hidden lg:flex items-center gap-1 px-1.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-line)]">
+          <button onclick="setThemeColor('blue')" data-swatch="blue" class="theme-swatch !w-3.5 !h-3.5 bg-[#2563EB] active-swatch" title="晴空蓝"></button>
+          <button onclick="setThemeColor('red')" data-swatch="red" class="theme-swatch !w-3.5 !h-3.5 bg-[#E61919]" title="绯红金"></button>
+          <button onclick="setThemeColor('green')" data-swatch="green" class="theme-swatch !w-3.5 !h-3.5 bg-[#059669]" title="森系绿"></button>
+          <button onclick="setThemeColor('violet')" data-swatch="violet" class="theme-swatch !w-3.5 !h-3.5 bg-[#7C3AED]" title="星夜紫"></button>
+        </div>
+
+        <button onclick="toggleFullScreen()" class="uiverse-btn py-1 px-2 text-xs font-mono" title="按 F 键切换全屏">
+          <span>⛶</span><span class="hidden md:inline">F</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Reader Main Viewport -->
+    <div id="readerViewport" class="flex-1 overflow-hidden relative flex items-center justify-center p-0 select-text">
+      <!-- Content dynamically rendered here -->
+    </div>
+
+    <!-- Reader Bottom Control Bar -->
+    <div class="h-11 border-t border-[var(--border-line)] bg-[var(--bg-card)]/95 backdrop-blur px-4 sm:px-8 flex items-center justify-between gap-4 shrink-0 z-20">
+      <button id="leftNavBtn" onclick="onLeftButtonClick()" class="uiverse-btn py-1 px-3.5 shrink-0">
+        <span>←</span> <span id="leftNavText">上一页</span>
+      </button>
+
+      <div class="flex-1 max-w-xl flex items-center gap-3">
+        <span id="pageIndicatorLeft" class="text-xs font-mono font-bold text-[var(--fg-muted)] shrink-0 min-w-[65px] text-right">1 / 1</span>
+        <input
+          type="range"
+          id="readerSlider"
+          min="0"
+          max="10"
+          value="0"
+          style="accent-color: var(--brand-primary);"
+          class="w-full cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg"
+          oninput="onSliderInput(this.value)"
+        />
+        <button id="swapTapModeBtn" onclick="toggleRtlTapInvert()" class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-border)] shrink-0 hover:opacity-80 transition" title="点击可切换左右翻页按钮方向">
+          滚轮可翻页
+        </button>
+      </div>
+
+      <button id="rightNavBtn" onclick="onRightButtonClick()" class="uiverse-btn-primary py-1 px-3.5 shrink-0">
+        <span id="rightNavText">下一页</span> <span>→</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================================
+    // 1. Core State, Theme Customization & Warm Eye-Care Mode
+    // ============================================================================
+    let library = [];
+    let currentBook = null;
+    let currentIndex = 0;
+    let activePages = [];
+    let renderToken = 0;
+    let webtoonObserver = null;
+    let lastWheelTurnTime = 0;
+
+    let layoutConfig = {
+      direction: 'ltr',      // 'ltr' | 'rtl' | 'vertical'
+      spread: 2,             // 1 | 2
+      coverOffset: true,
+      fontSize: 18,
+      rtlInvertButtons: true, // 日漫右→左模式下默认「左边是下一页」
+      webtoonFit: 'screen',   // 'screen' | 'medium' | 'wide'
+      themeColor: 'blue',     // 'blue' | 'red' | 'green' | 'violet'
+      surfaceMode: 'light'    // 'light' | 'warm' | 'dark'
+    };
+
+    // Toast Notification
+    function showToast(msg) {
+      const existing = document.getElementById('hikariToast');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.id = 'hikariToast';
+      el.style.backgroundColor = 'var(--brand-primary)';
+      el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] text-white px-4 py-2 rounded-xl shadow-xl text-xs font-bold tracking-wide transition-all duration-200 pointer-events-none';
+      el.innerText = msg;
+      document.body.appendChild(el);
+      setTimeout(() => {
+        if (el.parentNode) el.remove();
+      }, 2200);
+    }
+
+    // Set UI Accent Color ('blue' | 'red' | 'green' | 'violet')
+    function setThemeColor(colorName, silent = false) {
+      layoutConfig.themeColor = colorName;
+      document.documentElement.setAttribute('data-theme', colorName);
+      try { localStorage.setItem('homura_theme_color', colorName); } catch (e) {}
+
+      document.querySelectorAll('[data-swatch]').forEach(btn => {
+        if (btn.getAttribute('data-swatch') === colorName) {
+          btn.classList.add('active-swatch');
+        } else {
+          btn.classList.remove('active-swatch');
+        }
+      });
+
+      const names = { blue: '晴空蓝', red: '绯红金', green: '森系绿', violet: '星夜紫' };
+      if (!silent) showToast(`已切换 UI 主题色：${names[colorName] || colorName}`);
+      if (currentBook) updateToolbarHighlight();
+    }
+
+    // Set Reading Surface Mode ('light' | 'warm' | 'dark')
+    function setSurfaceMode(modeName, silent = false) {
+      layoutConfig.surfaceMode = modeName;
+      const html = document.documentElement;
+      html.setAttribute('data-mode', modeName);
+      if (modeName === 'dark') {
+        html.classList.add('dark');
+      } else {
+        html.classList.remove('dark');
+      }
+      try { localStorage.setItem('homura_surface_mode', modeName); } catch (e) {}
+
+      document.querySelectorAll('[data-mode-btn]').forEach(btn => {
+        const isCurrent = btn.getAttribute('data-mode-btn') === modeName;
+        if (isCurrent) {
+          btn.style.backgroundColor = 'var(--brand-primary)';
+          btn.style.color = '#FFFFFF';
+        } else {
+          btn.style.backgroundColor = 'transparent';
+          btn.style.color = 'var(--fg-muted)';
+        }
+      });
+
+      const labels = {
+        light: '☀️ 白昼清爽模式',
+        warm: '🌾 暖色调护眼模式（羊皮纸柔光）',
+        dark: '🌙 夜间深邃模式'
+      };
+      if (!silent) showToast(`已切换：${labels[modeName]}`);
+    }
+
+    // Fullscreen Toggle (F key)
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          showToast('无法进入全屏模式: ' + err.message);
+        });
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      const isFs = !!document.fullscreenElement;
+      const textEl = document.getElementById('fullscreenText');
+      if (textEl) textEl.innerText = isFs ? '退出 (F)' : 'F 全屏';
+    });
+
+    // ============================================================================
+    // 2. Demo Manga & Novel Generators
+    // ============================================================================
+    function createDemoMangaSvg(pageNumber, title, subtitle) {
+      const isRightSide = pageNumber % 2 === 1;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1200" width="850" height="1200">
+        <rect width="850" height="1200" fill="#ffffff"/>
+        <rect x="28" y="28" width="794" height="1144" rx="12" fill="#f8fafc" stroke="#0f172a" stroke-width="5"/>
+        <rect x="56" y="56" width="738" height="350" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="3"/>
+        <circle cx="${isRightSide ? 600 : 250}" cy="230" r="100" fill="#3b82f6" opacity="0.22"/>
+        <text x="425" y="220" font-family="sans-serif" font-size="40" font-weight="900" fill="#0f172a" text-anchor="middle">${title}</text>
+        <text x="425" y="275" font-family="sans-serif" font-size="20" font-weight="700" fill="#2563eb" text-anchor="middle">${subtitle}</text>
+        <rect x="56" y="436" width="354" height="380" rx="8" fill="#ffffff" stroke="#0f172a" stroke-width="3"/>
+        <text x="233" y="630" font-family="sans-serif" font-size="24" font-weight="800" fill="#1e293b" text-anchor="middle">分镜 A (左格)</text>
+        <rect x="440" y="436" width="354" height="380" rx="8" fill="#dbeafe" stroke="#0f172a" stroke-width="3"/>
+        <text x="617" y="630" font-family="sans-serif" font-size="24" font-weight="800" fill="#1e293b" text-anchor="middle">分镜 B (右格)</text>
+        <rect x="56" y="846" width="738" height="280" rx="8" fill="#0f172a"/>
+        <text x="425" y="975" font-family="sans-serif" font-size="50" font-weight="900" fill="#ffffff" text-anchor="middle">PAGE 0${pageNumber}</text>
+        <text x="425" y="1035" font-family="sans-serif" font-size="18" font-weight="700" fill="#60a5fa" text-anchor="middle">支持：4款UI主题色 · 暖色护眼模式 · 鼠标滚轮翻页 · 日漫左翻</text>
+      </svg>`;
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    }
+
+    function loadDemoManga(openNow = false) {
+      const pages = [
+        createDemoMangaSvg(1, '第1页 · 封面 (Cover)', '双页模式下首页单独对齐'),
+        createDemoMangaSvg(2, '第2页 · 苍穹启航', '日漫模式下位于右侧先读'),
+        createDemoMangaSvg(3, '第3页 · 星轨观测', '日漫模式下位于左侧后读（左边是下一页）'),
+        createDemoMangaSvg(4, '第4页 · 跨页展开 (右)', '支持开启「🌾护眼」柔光模式'),
+        createDemoMangaSvg(5, '第5页 · 跨页展开 (左)', '支持鼠标滚轮直接上下翻页'),
+        createDemoMangaSvg(6, '第6页 · 终章预告', '条漫模式支持单张完整显示')
+      ];
+      const book = {
+        id: 'demo_manga_' + Date.now(),
+        type: 'manga',
+        title: 'Homura 苍穹航路分镜集',
+        cover: pages[0],
+        pageItems: pages.map(url => ({ url })),
+        pageCount: pages.length
+      };
+      library.unshift(book);
+      renderBookshelf();
+      if (openNow) openBook(book.id);
+      else showToast('已添加《示例漫画》到书架');
+    }
+
+    function loadDemoNovel(openNow = false) {
+      const chapters = [
+        {
+          title: '序章 暖调羊皮纸与多彩主题',
+          htmlContent: `
+            <p>深夜的第七观测塔顶层，空气中弥漫着清凉的夜风与古老星盘运转的微响。</p>
+            <p>「现在您可以在顶部自由切换『晴空蓝、绯红金、森系绿、星夜紫』四款 UI 颜色，还可以一键开启『🌾 护眼』暖色调模式，将背景与漫画页面转化为柔和不刺眼的羊皮纸暖光。」</p>
+            <p>在阅读漫画或轻小说时，直接滚动鼠标滚轮即可轻松翻页；切换到日漫（右→左）模式时，下一页按钮会自动置于左侧。</p>
+          `
+        },
+        {
+          title: '第一章 双页文库与全屏沉浸',
+          htmlContent: `
+            <p>无论是 Kox 导出的 .kepub.epub 漫画、.cbz 压缩包还是本地漫画文件夹，导入后都会安静地排列在书架中。</p>
+            <p>随时按下键盘上的 F 键，即可一键进入全屏沉浸阅读。</p>
+          `
+        }
+      ];
+      const book = {
+        id: 'demo_novel_' + Date.now(),
+        type: 'epub',
+        title: '星降之夜的观测者 (轻小说)',
+        cover: null,
+        chapters: chapters,
+        pageCount: chapters.length
+      };
+      library.unshift(book);
+      renderBookshelf();
+      if (openNow) openBook(book.id);
+      else showToast('已添加《示例轻小说》到书架');
+    }
+
+    // ============================================================================
+    // 3. Bookshelf Rendering & Management
+    // ============================================================================
+    function renderBookshelf() {
+      const grid = document.getElementById('bookshelfGrid');
+      const countEl = document.getElementById('shelfCount');
+      if (!grid) return;
+
+      countEl.innerText = `${library.length} 本作品`;
+
+      if (library.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-14 text-center text-[var(--fg-muted)] text-xs font-medium">
+            书架暂无作品，请拖入文件或点击上方「导入文件 / 导入文件夹」
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = library.map(book => {
+        const badgeText = book.type === 'manga' ? '漫画' : (book.type === 'epub' ? 'EPUB' : '小说');
+        const subInfo = book.type === 'manga'
+          ? `共 ${book.pageCount || (book.pageItems ? book.pageItems.length : 0)} 页`
+          : `共 ${book.pageCount || (book.chapters ? book.chapters.length : 1)} 节`;
+
+        const coverHtml = book.cover
+          ? `<img src="${book.cover}" class="manga-page-img w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy" />`
+          : `<div style="background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover));" class="w-full h-full p-4 flex flex-col justify-between text-white">
+              <span class="text-[10px] font-mono font-bold tracking-widest opacity-80">ACGN·GO</span>
+              <div class="font-display font-bold text-sm line-clamp-3 leading-snug text-white">${escapeHtml(book.title)}</div>
+              <span class="text-[10px] opacity-80 font-mono">${subInfo}</span>
+            </div>`;
+
+        return `
+          <div onclick="openBook('${book.id}')" class="editorial-card group cursor-pointer overflow-hidden flex flex-col">
+            <div class="aspect-[3/4] w-full bg-[var(--bg-subtle)] relative overflow-hidden border-b border-[var(--border-line)]">
+              ${coverHtml}
+              <span style="background-color: var(--brand-primary);" class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md font-mono text-[10px] font-bold text-white shadow">
+                ${badgeText}
+              </span>
+              <button onclick="removeBook('${book.id}', event)" class="absolute top-2.5 right-2.5 w-6 h-6 rounded-md bg-slate-900/75 hover:bg-red-600 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition" title="从书架移除">
+                ✕
+              </button>
+            </div>
+            <div class="p-3 flex-1 flex flex-col justify-between gap-1.5">
+              <h4 class="font-bold text-xs line-clamp-2 leading-snug group-hover:text-[var(--brand-primary)] transition">
+                ${escapeHtml(book.title)}
+              </h4>
+              <div class="flex items-center justify-between text-[11px] font-mono text-[var(--fg-muted)] pt-1">
+                <span>${subInfo}</span>
+                <span class="text-[var(--brand-primary)] font-bold">阅读 →</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    function removeBook(id, ev) {
+      if (ev) ev.stopPropagation();
+      library = library.filter(b => b.id !== id);
+      renderBookshelf();
+      showToast('已从书架移除该作品');
+    }
+
+    function clearShelf() {
+      library = [];
+      renderBookshelf();
+      showToast('已清空书架');
+    }
+
+    // ============================================================================
+    // 4. Zero-Lag Lazy File & Folder Import Engine (With Duplicate Image Fix)
+    // ============================================================================
+    document.getElementById('globalFileInput').addEventListener('change', async e => {
+      await handleFiles(e.target.files);
+      e.target.value = '';
+    });
+    document.getElementById('folderFileInput').addEventListener('change', async e => {
+      await handleFiles(e.target.files);
+      e.target.value = '';
+    });
+
+    window.addEventListener('dragover', e => {
+      e.preventDefault();
+      document.getElementById('dropZoneBanner')?.classList.add('!border-[var(--brand-primary)]');
+    });
+    window.addEventListener('dragleave', e => {
+      e.preventDefault();
+      document.getElementById('dropZoneBanner')?.classList.remove('!border-[var(--brand-primary)]');
+    });
+    window.addEventListener('drop', async e => {
+      e.preventDefault();
+      document.getElementById('dropZoneBanner')?.classList.remove('!border-[var(--brand-primary)]');
+
+      if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+        const collectedFiles = [];
+        const entries = [];
+        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+          const item = e.dataTransfer.items[i];
+          if (item.kind === 'file') {
+            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+            if (entry) entries.push(entry);
+            else {
+              const f = item.getAsFile();
+              if (f) collectedFiles.push(f);
+            }
+          }
+        }
+        if (entries.length > 0) {
+          showToast('正在扫描文件夹内容...');
+          for (const entry of entries) {
+            await traverseFileTree(entry, '', collectedFiles);
+          }
+          if (collectedFiles.length > 0) {
+            await handleFiles(collectedFiles);
+            return;
+          }
+        }
+      }
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        await handleFiles(e.dataTransfer.files);
+      }
+    });
+
+    function traverseFileTree(item, path, outList) {
+      return new Promise(resolve => {
+        if (item.isFile) {
+          item.file(file => {
+            try {
+              Object.defineProperty(file, 'customRelativePath', {
+                value: path + file.name,
+                writable: false
+              });
+            } catch (err) {}
+            outList.push(file);
+            resolve();
+          }, () => resolve());
+        } else if (item.isDirectory) {
+          const dirReader = item.createReader();
+          const readEntriesBatch = () => {
+            dirReader.readEntries(async entries => {
+              if (!entries || entries.length === 0) {
+                resolve();
+              } else {
+                for (const entry of entries) {
+                  await traverseFileTree(entry, path + item.name + '/', outList);
+                }
+                readEntriesBatch();
+              }
+            }, () => resolve());
+          };
+          readEntriesBatch();
+        } else {
+          resolve();
+        }
+      });
+    }
+
+    async function handleFiles(fileList) {
+      if (!fileList || fileList.length === 0) return;
+      const files = Array.from(fileList).filter(f => !f.name.startsWith('.'));
+      if (files.length === 0) return;
+
+      let importedCount = 0;
+
+      // 1. EPUB / KEPUB.EPUB files
+      const epubFiles = files.filter(f => /\.epub$/i.test(f.name));
+      for (const epubFile of epubFiles) {
+        const ok = await parseEpubFileLazy(epubFile);
+        if (ok) importedCount++;
+      }
+
+      // 2. CBZ / ZIP archives
+      const archiveFiles = files.filter(f => /\.(cbz|zip)$/i.test(f.name));
+      for (const archiveFile of archiveFiles) {
+        const ok = await parseCbzFileLazy(archiveFile);
+        if (ok) importedCount++;
+      }
+
+      // 3. TXT / MD files
+      const txtFiles = files.filter(f => /\.(txt|md)$/i.test(f.name));
+      for (const txtFile of txtFiles) {
+        const ok = await parseTxtFile(txtFile);
+        if (ok) importedCount++;
+      }
+
+      // 4. Image folders
+      const imgFiles = files.filter(f => f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|avif|bmp)$/i.test(f.name));
+      if (imgFiles.length > 0) {
+        const folderGroups = {};
+        imgFiles.forEach(f => {
+          const rel = f.customRelativePath || f.webkitRelativePath || '';
+          const parts = rel.split('/').filter(Boolean);
+          let groupName = '本地漫画图集';
+          if (parts.length >= 2) {
+            groupName = parts[parts.length - 2];
+          } else if (imgFiles.length === 1) {
+            groupName = f.name.replace(/\.[^.]+$/, '');
+          }
+          if (!folderGroups[groupName]) folderGroups[groupName] = [];
+          folderGroups[groupName].push(f);
+        });
+
+        for (const [folderName, groupImgs] of Object.entries(folderGroups)) {
+          groupImgs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+          const firstCoverUrl = URL.createObjectURL(groupImgs[0]);
+          const pageItems = groupImgs.map((fileObj, idx) => ({
+            file: fileObj,
+            url: idx === 0 ? firstCoverUrl : null
+          }));
+          library.unshift({
+            id: 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            type: 'manga',
+            title: folderName,
+            cover: firstCoverUrl,
+            pageItems: pageItems,
+            pageCount: pageItems.length
+          });
+          importedCount++;
+        }
+      }
+
+      if (importedCount > 0) {
+        renderBookshelf();
+        showToast(`✅ 已秒速添加 ${importedCount} 部作品到书架`);
+      } else {
+        showToast('未找到支持的漫画或小说格式 (.epub / .cbz / .zip / .txt / 图片)');
+      }
+    }
+
+    function resolveRelativePath(basePath, relativePath) {
+      const baseDir = basePath.includes('/') ? basePath.substring(0, basePath.lastIndexOf('/') + 1) : '';
+      const stack = baseDir.split('/').filter(Boolean);
+      const parts = relativePath.split('/');
+      for (const p of parts) {
+        if (p === '..') stack.pop();
+        else if (p !== '.' && p !== '') stack.push(p);
+      }
+      return stack.join('/');
+    }
+
+    async function parseEpubFileLazy(file) {
+      try {
+        showToast(`正在快速索引《${file.name}》...`);
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(file);
+
+        const containerFile = zipContent.file('META-INF/container.xml');
+        if (!containerFile) throw new Error('缺少 META-INF/container.xml');
+        const containerXml = await containerFile.async('text');
+        const parser = new DOMParser();
+        const containerDoc = parser.parseFromString(containerXml, 'text/xml');
+        const rootfileEl = containerDoc.querySelector('rootfile');
+        const opfPath = rootfileEl ? rootfileEl.getAttribute('full-path') : 'content.opf';
+        const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+
+        const opfFile = zipContent.file(opfPath);
+        if (!opfFile) throw new Error('未找到 OPF 配置文件');
+        const opfText = await opfFile.async('text');
+        const opfDoc = parser.parseFromString(opfText, 'text/xml');
+
+        const titleEl = opfDoc.querySelector('title, dc\\:title');
+        const bookTitle = titleEl ? titleEl.textContent.trim() : file.name.replace(/(\.kepub)?\.epub$/i, '');
+
+        const manifest = {};
+        opfDoc.querySelectorAll('manifest > item').forEach(item => {
+          manifest[item.getAttribute('id')] = {
+            href: item.getAttribute('href'),
+            mediaType: item.getAttribute('media-type') || ''
+          };
+        });
+
+        const spineIds = [];
+        opfDoc.querySelectorAll('spine > itemref').forEach(ref => {
+          spineIds.push(ref.getAttribute('idref'));
+        });
+
+        const lazyMangaEntries = [];
+        const seenGlobalPaths = new Set();
+        const chapters = [];
+        let imageHeavyCount = 0;
+
+        for (const idref of spineIds) {
+          const item = manifest[idref];
+          if (!item) continue;
+          const fullPath = opfDir + decodeURIComponent(item.href);
+          const entry = zipContent.file(fullPath) || zipContent.file(item.href);
+          if (!entry) continue;
+
+          const rawHtml = await entry.async('text');
+          const htmlDoc = parser.parseFromString(rawHtml, 'text/html');
+          const imgs = htmlDoc.querySelectorAll('img, image');
+          const foundEntriesInPage = [];
+          const seenInCurrentPage = new Set();
+
+          for (const img of imgs) {
+            const srcAttr = img.getAttribute('src') || img.getAttribute('xlink:href') || img.getAttribute('href');
+            if (srcAttr && !srcAttr.startsWith('http') && !srcAttr.startsWith('data:')) {
+              const cleanSrc = decodeURIComponent(srcAttr.split('#')[0]);
+              const resolved = resolveRelativePath(fullPath, cleanSrc);
+              const imgEntry = zipContent.file(resolved) || zipContent.file(cleanSrc);
+              if (imgEntry) {
+                img.setAttribute('data-zip-path', imgEntry.name);
+                if (!seenInCurrentPage.has(imgEntry.name)) {
+                  seenInCurrentPage.add(imgEntry.name);
+                  foundEntriesInPage.push(imgEntry);
+                }
+              }
+            }
+          }
+
+          const plainText = (htmlDoc.body?.textContent || '').trim();
+          if (foundEntriesInPage.length > 0 && plainText.length < 60) {
+            imageHeavyCount++;
+            foundEntriesInPage.forEach(ent => {
+              if (!seenGlobalPaths.has(ent.name)) {
+                seenGlobalPaths.add(ent.name);
+                lazyMangaEntries.push({ zipEntry: ent, url: null });
+              }
+            });
+          }
+
+          const chapterHeading = htmlDoc.querySelector('h1, h2, h3, title')?.textContent?.trim()
+            || item.href.split('/').pop().replace(/\.[^.]+$/, '');
+          const bodyHtml = htmlDoc.body ? htmlDoc.body.innerHTML.trim() : rawHtml;
+
+          if (bodyHtml.length > 0) {
+            chapters.push({
+              title: chapterHeading,
+              htmlContent: bodyHtml
+            });
+          }
+        }
+
+        const isMangaEpub = imageHeavyCount > 0 && (imageHeavyCount >= chapters.length * 0.45 || lazyMangaEntries.length >= 6);
+
+        if (isMangaEpub && lazyMangaEntries.length > 0) {
+          const firstBlob = await lazyMangaEntries[0].zipEntry.async('blob');
+          const coverUrl = URL.createObjectURL(firstBlob);
+          lazyMangaEntries[0].url = coverUrl;
+
+          library.unshift({
+            id: 'epub_manga_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            type: 'manga',
+            title: bookTitle,
+            cover: coverUrl,
+            pageItems: lazyMangaEntries,
+            pageCount: lazyMangaEntries.length
+          });
+          return true;
+        }
+
+        if (chapters.length === 0) throw new Error('未能提取出有效章节内容');
+
+        let coverUrl = null;
+        if (lazyMangaEntries.length > 0) {
+          const b = await lazyMangaEntries[0].zipEntry.async('blob');
+          coverUrl = URL.createObjectURL(b);
+        }
+
+        library.unshift({
+          id: 'epub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          type: 'epub',
+          title: bookTitle,
+          cover: coverUrl,
+          zipContent: zipContent,
+          chapters: chapters,
+          pageCount: chapters.length
+        });
+        return true;
+      } catch (err) {
+        console.error(err);
+        showToast('EPUB 解析失败：' + err.message);
+        return false;
+      }
+    }
+
+    async function parseCbzFileLazy(file) {
+      try {
+        showToast(`正在快速索引压缩包《${file.name}》...`);
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(file);
+        const imgEntries = [];
+
+        zipContent.forEach((relPath, entry) => {
+          if (!entry.dir && /\.(jpg|jpeg|png|webp|gif|avif|bmp)$/i.test(relPath) && !relPath.includes('__MACOSX')) {
+            imgEntries.push({ name: relPath, entry });
+          }
+        });
+
+        imgEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        if (imgEntries.length === 0) throw new Error('压缩包内未找到图片');
+
+        const firstBlob = await imgEntries[0].entry.async('blob');
+        const firstUrl = URL.createObjectURL(firstBlob);
+
+        const pageItems = imgEntries.map((item, idx) => ({
+          zipEntry: item.entry,
+          url: idx === 0 ? firstUrl : null
+        }));
+
+        const title = file.name.replace(/\.(cbz|zip)$/i, '');
+        library.unshift({
+          id: 'cbz_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          type: 'manga',
+          title: title,
+          cover: firstUrl,
+          pageItems: pageItems,
+          pageCount: pageItems.length
+        });
+        return true;
+      } catch (err) {
+        console.error(err);
+        showToast('压缩包解析失败：' + err.message);
+        return false;
+      }
+    }
+
+    function parseTxtFile(txtFile) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const rawText = e.target.result || '';
+          const paragraphs = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          const title = txtFile.name.replace(/\.[^.]+$/, '');
+          const chunkSize = 22;
+          const chapters = [];
+          for (let i = 0; i < paragraphs.length; i += chunkSize) {
+            const slice = paragraphs.slice(i, i + chunkSize);
+            chapters.push({
+              title: `${title} · 第 ${Math.floor(i / chunkSize) + 1} 节`,
+              htmlContent: slice.map(p => `<p>${escapeHtml(p)}</p>`).join('')
+            });
+          }
+          if (chapters.length === 0) {
+            chapters.push({ title, htmlContent: '<p>（空文件）</p>' });
+          }
+          library.unshift({
+            id: 'txt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            type: 'novel',
+            title: title,
+            cover: null,
+            chapters: chapters,
+            pageCount: chapters.length
+          });
+          resolve(true);
+        };
+        reader.onerror = () => resolve(false);
+        reader.readAsText(txtFile, 'utf-8');
+      });
+    }
+
+    // ============================================================================
+    // 5. On-Demand Page URL Resolver
+    // ============================================================================
+    async function ensurePageUrlLoaded(pageObj) {
+      if (!pageObj) return '';
+      if (pageObj.url) return pageObj.url;
+      if (pageObj.file) {
+        pageObj.url = URL.createObjectURL(pageObj.file);
+        return pageObj.url;
+      }
+      if (pageObj.zipEntry) {
+        const blob = await pageObj.zipEntry.async('blob');
+        pageObj.url = URL.createObjectURL(blob);
+        return pageObj.url;
+      }
+      return '';
+    }
+
+    async function ensureNovelHtmlImagesLoaded(pageObj, book) {
+      if (!pageObj || pageObj.imagesResolved || !book.zipContent) return;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = pageObj.html;
+      const pendingImgs = wrapper.querySelectorAll('[data-zip-path]');
+      for (const img of pendingImgs) {
+        const zipPath = img.getAttribute('data-zip-path');
+        const entry = book.zipContent.file(zipPath);
+        if (entry) {
+          const blob = await entry.async('blob');
+          const url = URL.createObjectURL(blob);
+          if (img.tagName.toLowerCase() === 'image') {
+            img.setAttribute('href', url);
+            img.setAttribute('xlink:href', url);
+          } else {
+            img.setAttribute('src', url);
+          }
+          img.removeAttribute('data-zip-path');
+        }
+      }
+      pageObj.html = wrapper.innerHTML;
+      pageObj.imagesResolved = true;
+    }
+
+    function buildActivePagesForBook(book) {
+      if (book.type === 'manga') {
+        activePages = (book.pageItems || []).map((item, idx) => ({
+          pageNumber: idx + 1,
+          itemRef: item
+        }));
+      } else {
+        activePages = (book.chapters || []).map((chap, idx) => ({
+          pageNumber: idx + 1,
+          title: chap.title || `第 ${idx + 1} 节`,
+          html: chap.htmlContent,
+          imagesResolved: false
+        }));
+      }
+    }
+
+    // ============================================================================
+    // 6. Reader Modal, Mouse Wheel Page Turn & RTL Left-Next Engine
+    // ============================================================================
+    function openBook(id) {
+      const book = library.find(b => b.id === id);
+      if (!book) return;
+      currentBook = book;
+      currentIndex = 0;
+
+      buildActivePagesForBook(book);
+
+      document.getElementById('readerTitle').innerText = book.title;
+      document.getElementById('readerModal').classList.remove('hidden');
+
+      const fontCtrl = document.getElementById('novelFontControls');
+      if (book.type === 'manga') {
+        fontCtrl.classList.add('hidden');
+        fontCtrl.classList.remove('sm:flex');
+      } else {
+        fontCtrl.classList.remove('hidden');
+        fontCtrl.classList.add('sm:flex');
+      }
+
+      renderReaderViewport();
+    }
+
+    function closeReader() {
+      if (webtoonObserver) {
+        webtoonObserver.disconnect();
+        webtoonObserver = null;
+      }
+      document.getElementById('readerModal').classList.add('hidden');
+      currentBook = null;
+    }
+
+    function setDirection(dir) {
+      layoutConfig.direction = dir;
+      if (dir === 'rtl') {
+        layoutConfig.rtlInvertButtons = true;
+      }
+      renderReaderViewport();
+    }
+
+    function setSpreadCount(count) {
+      layoutConfig.spread = count;
+      if (layoutConfig.direction === 'vertical') {
+        layoutConfig.direction = 'ltr';
+      }
+      renderReaderViewport();
+    }
+
+    function toggleCoverOffset() {
+      layoutConfig.coverOffset = !layoutConfig.coverOffset;
+      document.getElementById('coverOffsetStatus').innerText = layoutConfig.coverOffset ? '开' : '关';
+      renderReaderViewport();
+    }
+
+    function toggleWebtoonWidth() {
+      const order = ['screen', 'medium', 'wide'];
+      const labels = { screen: '完整单张', medium: '适中宽幅', wide: '超宽满屏' };
+      const nextIdx = (order.indexOf(layoutConfig.webtoonFit) + 1) % order.length;
+      layoutConfig.webtoonFit = order[nextIdx];
+      document.getElementById('webtoonFitStatus').innerText = labels[layoutConfig.webtoonFit];
+      renderReaderViewport();
+      showToast('条漫显示尺寸：' + labels[layoutConfig.webtoonFit]);
+    }
+
+    function changeFontSize(delta) {
+      layoutConfig.fontSize = Math.min(28, Math.max(14, layoutConfig.fontSize + delta));
+      document.getElementById('fontSizeLabel').innerText = layoutConfig.fontSize;
+      renderReaderViewport();
+    }
+
+    function getSpreadPair(index) {
+      const total = activePages.length;
+      if (total === 0) return [];
+      const clamped = Math.max(0, Math.min(total - 1, index));
+
+      if (layoutConfig.spread === 1) {
+        return [activePages[clamped]];
+      }
+
+      if (layoutConfig.coverOffset && clamped === 0) {
+        return [activePages[0]];
+      }
+
+      let pairStart = clamped;
+      if (layoutConfig.coverOffset) {
+        if (pairStart % 2 === 0) pairStart -= 1;
+      } else {
+        if (pairStart % 2 === 1) pairStart -= 1;
+      }
+
+      const firstPage = activePages[pairStart];
+      const secondPage = pairStart + 1 < total ? activePages[pairStart + 1] : null;
+      return secondPage ? [firstPage, secondPage] : [firstPage];
+    }
+
+    function getStepSizeForNext() {
+      if (layoutConfig.spread === 1) return 1;
+      if (layoutConfig.coverOffset && currentIndex === 0) return 1;
+      return 2;
+    }
+
+    function getStepSizeForPrev() {
+      if (layoutConfig.spread === 1) return 1;
+      if (layoutConfig.coverOffset && currentIndex === 1) return 1;
+      return 2;
+    }
+
+    function goNextPage() {
+      if (!currentBook) return;
+      if (layoutConfig.direction === 'vertical') {
+        const container = document.getElementById('verticalScrollContainer');
+        if (container) container.scrollBy({ top: container.clientHeight * 0.9, behavior: 'smooth' });
+        return;
+      }
+      const step = getStepSizeForNext();
+      if (currentIndex + step < activePages.length) {
+        currentIndex += step;
+        renderReaderViewport();
+      } else if (currentIndex < activePages.length - 1) {
+        currentIndex = activePages.length - 1;
+        renderReaderViewport();
+      } else {
+        showToast('已经是最后一页了');
+      }
+    }
+
+    function goPrevPage() {
+      if (!currentBook) return;
+      if (layoutConfig.direction === 'vertical') {
+        const container = document.getElementById('verticalScrollContainer');
+        if (container) container.scrollBy({ top: -container.clientHeight * 0.9, behavior: 'smooth' });
+        return;
+      }
+      const step = getStepSizeForPrev();
+      if (currentIndex - step >= 0) {
+        currentIndex -= step;
+        renderReaderViewport();
+      } else if (currentIndex > 0) {
+        currentIndex = 0;
+        renderReaderViewport();
+      } else {
+        showToast('已经是第一页了');
+      }
+    }
+
+    function isNavigationInverted() {
+      return layoutConfig.direction === 'rtl' && layoutConfig.rtlInvertButtons;
+    }
+
+    function toggleRtlTapInvert() {
+      if (layoutConfig.direction !== 'rtl') {
+        showToast('当前为左→右模式，支持鼠标滚轮直接翻页');
+        return;
+      }
+      layoutConfig.rtlInvertButtons = !layoutConfig.rtlInvertButtons;
+      renderReaderViewport();
+      showToast(layoutConfig.rtlInvertButtons ? '已切换：左边是下一页 (日漫原生手势)' : '已切换：右边是下一页');
+    }
+
+    function onLeftButtonClick() {
+      if (isNavigationInverted()) goNextPage();
+      else goPrevPage();
+    }
+
+    function onRightButtonClick() {
+      if (isNavigationInverted()) goPrevPage();
+      else goNextPage();
+    }
+
+    function onSliderInput(val) {
+      currentIndex = parseInt(val, 10) || 0;
+      if (layoutConfig.direction === 'vertical') {
+        const targetEl = document.getElementById('webtoon-page-' + currentIndex);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        document.getElementById('pageIndicatorLeft').innerText = `${currentIndex + 1} / ${activePages.length}`;
+        return;
+      }
+      renderReaderViewport();
+    }
+
+    // Mouse Wheel Page Turn Support
+    document.getElementById('readerViewport').addEventListener('wheel', e => {
+      if (!currentBook || document.getElementById('readerModal').classList.contains('hidden')) return;
+      if (layoutConfig.direction === 'vertical') return;
+
+      if (currentBook.type !== 'manga') {
+        const scrollableArticle = e.target.closest('article');
+        if (scrollableArticle && scrollableArticle.scrollHeight > scrollableArticle.clientHeight + 4) {
+          const atBottom = scrollableArticle.scrollTop + scrollableArticle.clientHeight >= scrollableArticle.scrollHeight - 4;
+          const atTop = scrollableArticle.scrollTop <= 4;
+          if ((e.deltaY > 0 && !atBottom) || (e.deltaY < 0 && !atTop)) {
+            return;
+          }
+        }
+      }
+
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastWheelTurnTime < 220) return;
+
+      if (Math.abs(e.deltaY) > 12) {
+        lastWheelTurnTime = now;
+        if (e.deltaY > 0) {
+          goNextPage();
+        } else {
+          goPrevPage();
+        }
+      } else if (Math.abs(e.deltaX) > 15) {
+        lastWheelTurnTime = now;
+        if (e.deltaX > 0) {
+          onRightButtonClick();
+        } else {
+          onLeftButtonClick();
+        }
+      }
+    }, { passive: false });
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', e => {
+      if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullScreen();
+        return;
+      }
+
+      if (!currentBook || document.getElementById('readerModal').classList.contains('hidden')) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        onLeftButtonClick();
+      } else if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        onRightButtonClick();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        goNextPage();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        goPrevPage();
+      } else if (e.key === 'Escape') {
+        closeReader();
+      }
+    });
+
+    function updateToolbarHighlight() {
+      const activeStyle = 'background-color: var(--brand-primary); color: #FFFFFF;';
+      const inactiveStyle = 'background-color: transparent; color: var(--fg-muted);';
+
+      const btnRTL = document.getElementById('btnDirRTL');
+      const btnLTR = document.getElementById('btnDirLTR');
+      const btnVert = document.getElementById('btnDirVertical');
+      const btnSingle = document.getElementById('btnSpreadSingle');
+      const btnDouble = document.getElementById('btnSpreadDouble');
+      const btnOffset = document.getElementById('btnCoverOffset');
+      const btnWebtoonFit = document.getElementById('btnWebtoonFit');
+
+      btnRTL.setAttribute('style', layoutConfig.direction === 'rtl' ? activeStyle : inactiveStyle);
+      btnLTR.setAttribute('style', layoutConfig.direction === 'ltr' ? activeStyle : inactiveStyle);
+      btnVert.setAttribute('style', layoutConfig.direction === 'vertical' ? activeStyle : inactiveStyle);
+
+      const isVertical = layoutConfig.direction === 'vertical';
+      btnSingle.setAttribute('style', (!isVertical && layoutConfig.spread === 1) ? activeStyle : inactiveStyle);
+      btnDouble.setAttribute('style', (!isVertical && layoutConfig.spread === 2) ? activeStyle : inactiveStyle);
+
+      if (!isVertical && layoutConfig.spread === 2) {
+        btnOffset.classList.remove('hidden');
+        btnOffset.classList.add('xl:flex');
+      } else {
+        btnOffset.classList.add('hidden');
+        btnOffset.classList.remove('xl:flex');
+      }
+
+      if (isVertical && currentBook && currentBook.type === 'manga') {
+        btnWebtoonFit.classList.remove('hidden');
+        btnWebtoonFit.classList.add('inline-flex');
+      } else {
+        btnWebtoonFit.classList.add('hidden');
+        btnWebtoonFit.classList.remove('inline-flex');
+      }
+
+      const subStatus = document.getElementById('readerSubStatus');
+      const leftNavBtn = document.getElementById('leftNavBtn');
+      const rightNavBtn = document.getElementById('rightNavBtn');
+      const leftNavText = document.getElementById('leftNavText');
+      const rightNavText = document.getElementById('rightNavText');
+      const swapTapBtn = document.getElementById('swapTapModeBtn');
+      const slider = document.getElementById('readerSlider');
+
+      const spreadLabel = layoutConfig.spread === 2 ? '双页满屏' : '单页';
+      const inverted = isNavigationInverted();
+
+      if (layoutConfig.direction === 'rtl') {
+        subStatus.innerText = `日漫右→左 (${inverted ? '左边是下一页' : '右边是下一页'}) · 支持鼠标滚轮翻页`;
+        leftNavText.innerText = inverted ? '下一页' : '上一页';
+        rightNavText.innerText = inverted ? '上一页' : '下一页';
+        leftNavBtn.className = inverted ? 'uiverse-btn-primary py-1 px-3.5 shrink-0' : 'uiverse-btn py-1 px-3.5 shrink-0';
+        rightNavBtn.className = inverted ? 'uiverse-btn py-1 px-3.5 shrink-0' : 'uiverse-btn-primary py-1 px-3.5 shrink-0';
+        swapTapBtn.innerText = inverted ? '日漫:左翻下一页(滚轮可用)' : '日漫:右翻下一页(滚轮可用)';
+        if (inverted) slider.classList.add('rtl-slider');
+        else slider.classList.remove('rtl-slider');
+      } else if (layoutConfig.direction === 'ltr') {
+        subStatus.innerText = `左→右 (右边是下一页) · ${spreadLabel} · 支持鼠标滚轮翻页`;
+        leftNavText.innerText = '上一页';
+        rightNavText.innerText = '下一页';
+        leftNavBtn.className = 'uiverse-btn py-1 px-3.5 shrink-0';
+        rightNavBtn.className = 'uiverse-btn-primary py-1 px-3.5 shrink-0';
+        swapTapBtn.innerText = `滚轮可翻页 · ${spreadLabel}`;
+        slider.classList.remove('rtl-slider');
+      } else {
+        subStatus.innerText = `条漫纵向模式 · 单张完整大图连续滚动`;
+        leftNavText.innerText = '上滚一屏';
+        rightNavText.innerText = '下滚一屏';
+        leftNavBtn.className = 'uiverse-btn py-1 px-3.5 shrink-0';
+        rightNavBtn.className = 'uiverse-btn-primary py-1 px-3.5 shrink-0';
+        swapTapBtn.innerText = '上→下条漫';
+        slider.classList.remove('rtl-slider');
+      }
+    }
+
+    function renderSingleNovelCard(pageObj, sideLabel = '') {
+      return `
+        <article style="font-size: ${layoutConfig.fontSize}px;" class="flex-1 h-full max-w-2xl bg-[var(--bg-card)] text-[var(--fg-main)] rounded-xl shadow-sm border border-[var(--border-line)] p-6 sm:p-10 flex flex-col justify-between overflow-y-auto transition-colors duration-200">
+          <div>
+            <div class="flex items-center justify-between border-b border-[var(--border-line)] pb-3 mb-5 text-xs font-sans text-[var(--brand-primary)] font-bold">
+              <span class="truncate">${escapeHtml(pageObj.title)}</span>
+              <span class="font-mono shrink-0">${sideLabel} P.${pageObj.pageNumber}</span>
+            </div>
+            <div class="epub-content font-serif leading-relaxed">
+              ${pageObj.html}
+            </div>
+          </div>
+          <div class="pt-6 text-center text-[11px] font-mono text-[var(--fg-muted)]">
+            — 第 ${pageObj.pageNumber} 节 —
+          </div>
+        </article>
+      `;
+    }
+
+    async function renderReaderViewport() {
+      if (!currentBook) return;
+      const myToken = ++renderToken;
+      updateToolbarHighlight();
+
+      if (webtoonObserver) {
+        webtoonObserver.disconnect();
+        webtoonObserver = null;
+      }
+
+      const viewport = document.getElementById('readerViewport');
+      const indicator = document.getElementById('pageIndicatorLeft');
+      const slider = document.getElementById('readerSlider');
+      const total = activePages.length;
+
+      slider.max = Math.max(0, total - 1);
+      slider.value = currentIndex;
+
+      // 1. VERTICAL MODE (Fixed Webtoon)
+      if (layoutConfig.direction === 'vertical') {
+        indicator.innerText = `${currentIndex + 1} / ${total}`;
+        if (currentBook.type === 'manga') {
+          let imgStyleClass = '';
+          if (layoutConfig.webtoonFit === 'screen') {
+            imgStyleClass = 'max-h-[calc(100vh-6rem)] w-auto max-w-full object-contain mx-auto';
+          } else if (layoutConfig.webtoonFit === 'medium') {
+            imgStyleClass = 'w-full max-w-[720px] h-auto object-contain mx-auto';
+          } else {
+            imgStyleClass = 'w-full max-w-[1024px] h-auto object-contain mx-auto';
+          }
+
+          viewport.innerHTML = `
+            <div id="verticalScrollContainer" class="w-full h-full overflow-y-auto flex flex-col items-center py-2 gap-2">
+              ${activePages.map((p, idx) => `
+                <div id="webtoon-page-${idx}" class="w-full flex flex-col items-center justify-center shrink-0">
+                  <img data-lazy-index="${idx}" class="manga-page-img ${imgStyleClass} bg-[var(--bg-card)] shadow-sm rounded-sm select-none" alt="第 ${p.pageNumber} 页" />
+                </div>
+              `).join('')}
+            </div>
+          `;
+          const scrollRoot = document.getElementById('verticalScrollContainer');
+
+          for (let i = Math.max(0, currentIndex - 1); i <= Math.min(total - 1, currentIndex + 2); i++) {
+            ensurePageUrlLoaded(activePages[i].itemRef).then(url => {
+              const el = viewport.querySelector(`img[data-lazy-index="${i}"]`);
+              if (el && url) el.src = url;
+            });
+          }
+
+          webtoonObserver = new IntersectionObserver(entries => {
+            entries.forEach(async entry => {
+              if (entry.isIntersecting) {
+                const imgEl = entry.target;
+                const idx = parseInt(imgEl.getAttribute('data-lazy-index'), 10);
+                const pageData = activePages[idx];
+                if (pageData) {
+                  const url = await ensurePageUrlLoaded(pageData.itemRef);
+                  if (url && imgEl.src !== url) imgEl.src = url;
+                }
+                currentIndex = idx;
+                indicator.innerText = `${idx + 1} / ${total}`;
+                slider.value = idx;
+              }
+            });
+          }, { root: scrollRoot, rootMargin: '800px 0px', threshold: 0.1 });
+
+          viewport.querySelectorAll('img[data-lazy-index]').forEach(img => webtoonObserver.observe(img));
+
+          if (currentIndex > 0) {
+            setTimeout(() => {
+              const target = document.getElementById('webtoon-page-' + currentIndex);
+              if (target) target.scrollIntoView({ behavior: 'auto', block: 'start' });
+            }, 50);
+          }
+        } else {
+          viewport.innerHTML = `
+            <div id="verticalScrollContainer" class="w-full h-full overflow-y-auto py-4 px-2">
+              <div style="font-size: ${layoutConfig.fontSize}px;" class="max-w-3xl mx-auto bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-line)] p-6 sm:p-12 space-y-8">
+                ${activePages.map(p => `
+                  <section class="border-b border-[var(--border-line)] pb-6 last:border-none">
+                    <div class="text-xs font-bold text-[var(--brand-primary)] mb-4">${escapeHtml(p.title)} · 第 ${p.pageNumber} 节</div>
+                    <div class="epub-content font-serif leading-relaxed">${p.html}</div>
+                  </section>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      // 2. PAGINATED MODES (Full-Bleed Maximized Manga Viewport + Left=Next in RTL!)
+      const pair = getSpreadPair(currentIndex);
+      const pageNums = pair.map(p => p.pageNumber).join('-');
+      indicator.innerText = `${pageNums} / ${total}`;
+
+      const inverted = isNavigationInverted();
+      const tapZonesHtml = `
+        <div onclick="onLeftButtonClick()" class="fixed inset-y-12 left-0 w-[14%] z-10 cursor-pointer group flex items-center justify-start pl-3" title="点击翻页">
+          <div style="background-color: var(--brand-primary);" class="opacity-0 group-hover:opacity-95 transition text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg pointer-events-none">
+            ${inverted ? '← 下一页' : '← 上一页'}
+          </div>
+        </div>
+        <div onclick="onRightButtonClick()" class="fixed inset-y-12 right-0 w-[14%] z-10 cursor-pointer group flex items-center justify-end pr-3" title="点击翻页">
+          <div style="background-color: var(--brand-primary);" class="opacity-0 group-hover:opacity-95 transition text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg pointer-events-none">
+            ${inverted ? '上一页 →' : '下一页 →'}
+          </div>
+        </div>
+      `;
+
+      if (currentBook.type === 'manga') {
+        for (const p of pair) {
+          await ensurePageUrlLoaded(p.itemRef);
+        }
+        if (myToken !== renderToken) return;
+
+        let leftItem = null;
+        let rightItem = null;
+        if (pair.length === 2) {
+          if (layoutConfig.direction === 'rtl') {
+            rightItem = pair[0];
+            leftItem = pair[1];
+          } else {
+            leftItem = pair[0];
+            rightItem = pair[1];
+          }
+        }
+
+        if (pair.length === 1) {
+          viewport.innerHTML = `
+            ${tapZonesHtml}
+            <div class="w-full h-full flex items-center justify-center overflow-hidden">
+              <img src="${pair[0].itemRef.url}" class="manga-page-img h-full w-auto max-w-full object-contain select-none" />
+            </div>
+          `;
+        } else {
+          viewport.innerHTML = `
+            ${tapZonesHtml}
+            <div class="w-full h-full flex items-center justify-center overflow-hidden">
+              <div class="flex items-center justify-center w-full h-full relative">
+                <div class="w-1/2 h-full flex items-center justify-end overflow-hidden">
+                  <img src="${leftItem.itemRef.url}" class="manga-page-img h-full max-h-full w-auto max-w-full object-contain object-right select-none" />
+                </div>
+                <div class="w-2 h-full book-spine-shadow pointer-events-none z-10 shrink-0"></div>
+                <div class="w-1/2 h-full flex items-center justify-start overflow-hidden">
+                  <img src="${rightItem.itemRef.url}" class="manga-page-img h-full max-h-full w-auto max-w-full object-contain object-left select-none" />
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        // Background preload next 3 pages smoothly
+        setTimeout(() => {
+          for (let i = 1; i <= 3; i++) {
+            const nextPage = activePages[currentIndex + i];
+            if (nextPage && nextPage.itemRef) ensurePageUrlLoaded(nextPage.itemRef);
+          }
+        }, 80);
+
+      } else {
+        // Novel / EPUB Paginated
+        for (const p of pair) {
+          await ensureNovelHtmlImagesLoaded(p, currentBook);
+        }
+        if (myToken !== renderToken) return;
+
+        if (pair.length === 1) {
+          viewport.innerHTML = `
+            ${tapZonesHtml}
+            <div class="w-full h-full flex items-center justify-center p-3 sm:p-5">
+              ${renderSingleNovelCard(pair[0], layoutConfig.direction === 'rtl' ? '[右→左]' : '[左→右]')}
+            </div>
+          `;
+        } else {
+          const leftItem = layoutConfig.direction === 'rtl' ? pair[1] : pair[0];
+          const rightItem = layoutConfig.direction === 'rtl' ? pair[0] : pair[1];
+          viewport.innerHTML = `
+            ${tapZonesHtml}
+            <div class="w-full h-full max-w-6xl mx-auto flex flex-col md:flex-row items-stretch justify-center gap-3 p-3 sm:p-5 relative z-0">
+              ${renderSingleNovelCard(leftItem, layoutConfig.direction === 'rtl' ? '左页 (后读)' : '左页 (先读)')}
+              ${renderSingleNovelCard(rightItem, layoutConfig.direction === 'rtl' ? '右页 (先读)' : '右页 (后读)')}
+            </div>
+          `;
+        }
+      }
+    }
+
+    // Download standalone HTML copy
+    function downloadSelf() {
+      const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Homura_Reader_CustomThemes.html';
+      a.click();
+      showToast('已导出单文件离线阅读器！');
+    }
+
+    // Initialize saved theme/mode & default shelf on startup
+    window.addEventListener('DOMContentLoaded', () => {
+      let savedTheme = 'blue';
+      let savedMode = 'light';
+      try {
+        savedTheme = localStorage.getItem('homura_theme_color') || 'blue';
+        savedMode = localStorage.getItem('homura_surface_mode') || 'light';
+      } catch (e) {}
+
+      setThemeColor(savedTheme, true);
+      setSurfaceMode(savedMode, true);
+
+      loadDemoNovel(false);
+      loadDemoManga(false);
+      renderBookshelf();
+    });
+  </script>
+</body>
+</html>
